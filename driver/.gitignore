@@ -1,0 +1,7 @@
+/.*.cmd
+/Module.symvers
+/modules.order
+/simple_fifo.ko
+/simple_fifo.mod
+/simple_fifo.mod.c
+/*.o

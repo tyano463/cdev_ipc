@@ -8,7 +8,9 @@
 #include <linux/types.h>
 #include <linux/device.h>
 
-#define DEVICE_NAME "simple_fifo"
+#include "../cdev.h"
+
+#define DRIVER_NAME "simple_fifo"
 #define BUF_SIZE 256
 
 // キャラクタデバイスの内部バッファ
@@ -17,21 +19,21 @@ static int read_pos = 0;  // 読み取り位置
 static int write_pos = 0; // 書き込み位置
 
 // デバイスファイルを保持する構造体
-static dev_t dev_number;
+static dev_t dev;
 static struct cdev cdev;
 static struct class *cls;
 
 // デバイスのオープン
 static int fifo_open(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "FIFO: Opened\n");
+    // printk(KERN_INFO "FIFO: Opened\n");
     return 0;
 }
 
 // デバイスのクローズ
 static int fifo_close(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "FIFO: Closed\n");
+    // printk(KERN_INFO "FIFO: Closed\n");
     return 0;
 }
 
@@ -49,14 +51,14 @@ static ssize_t fifo_read(struct file *file, char __user *buf, size_t count, loff
         bytes_read++;
     }
 
-    if (bytes_read > 0)
-    {
-        printk(KERN_INFO "FIFO: Read %d bytes\n", bytes_read);
-    }
-    else
-    {
-        printk(KERN_INFO "FIFO: No data to read\n");
-    }
+    // if (bytes_read > 0)
+    // {
+    //     printk(KERN_INFO "FIFO: Read %d bytes\n", bytes_read);
+    // }
+    // else
+    // {
+    //     printk(KERN_INFO "FIFO: No data to read\n");
+    // }
 
     return bytes_read;
 }
@@ -74,14 +76,14 @@ static ssize_t fifo_write(struct file *file, const char __user *buf, size_t coun
         bytes_written++;
     }
 
-    if (bytes_written > 0)
-    {
-        printk(KERN_INFO "FIFO: Written %d bytes\n", bytes_written);
-    }
-    else
-    {
-        printk(KERN_INFO "FIFO: Buffer full\n");
-    }
+    // if (bytes_written > 0)
+    // {
+    //     printk(KERN_INFO "FIFO: Written %d bytes\n", bytes_written);
+    // }
+    // else
+    // {
+    //     printk(KERN_INFO "FIFO: Buffer full\n");
+    // }
 
     return bytes_written;
 }
@@ -98,8 +100,10 @@ static struct file_operations fops = {
 // モジュールの初期化関数
 static int __init fifo_init(void)
 {
+    dev = MKDEV(DEVICE_MAJOR_VERSION, DEVICE_MINOR_VERSION);
+
     // デバイス番号の動的割り当て
-    if (alloc_chrdev_region(&dev_number, 0, 1, DEVICE_NAME) < 0)
+    if (register_chrdev_region(dev, 1, DRIVER_NAME) < 0)
     {
         printk(KERN_ALERT "FIFO: Failed to allocate a device number\n");
         return -1;
@@ -107,21 +111,21 @@ static int __init fifo_init(void)
 
     // cdev構造体の初期化
     cdev_init(&cdev, &fops);
-    cdev_add(&cdev, dev_number, 1);
+    cdev_add(&cdev, dev, 1);
 
     // デバイスクラスの作成
-    cls = class_create(DEVICE_NAME);
+    cls = class_create(DRIVER_NAME);
     if (IS_ERR(cls))
     {
-        unregister_chrdev_region(dev_number, 1);
+        unregister_chrdev_region(dev, 1);
         return PTR_ERR(cls);
     }
 
     // デバイスファイルの作成
-    if (device_create(cls, NULL, dev_number, NULL, DEVICE_NAME) == NULL)
+    if (device_create(cls, NULL, dev, NULL, DRIVER_NAME) == NULL)
     {
         class_destroy(cls);
-        unregister_chrdev_region(dev_number, 1);
+        unregister_chrdev_region(dev, 1);
         return -1;
     }
 
@@ -132,10 +136,10 @@ static int __init fifo_init(void)
 // モジュールのクリーンアップ関数
 static void __exit fifo_exit(void)
 {
-    device_destroy(cls, dev_number);
+    device_destroy(cls, dev);
     class_destroy(cls);
     cdev_del(&cdev);
-    unregister_chrdev_region(dev_number, 1);
+    unregister_chrdev_region(dev, 1);
     printk(KERN_INFO "FIFO: Device has been unregistered\n");
 }
 
