@@ -5,10 +5,15 @@ This sample program demonstrates inter-process communication using character dev
 # build
 ```
 make
-insmod driver/simple_fifo.ko
 ```
 
 # run
+
+## device driver
+
+```
+sudo insmod driver/simple_fifo.ko
+```
 
 ## rx
 ```
