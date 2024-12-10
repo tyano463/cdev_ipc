@@ -122,7 +122,7 @@ static int fifo_open(struct inode *inode, struct file *file)
         if (dev_index > 100)
             dev_index = 1;
     }
-    printk(KERN_INFO "FIFO Open: %p pid:%d id:%d d:%d\n", file, fifo_dev->pid, to_id(file), minor);
+    // printk(KERN_INFO "FIFO Open: %p pid:%d id:%d d:%d\n", file, fifo_dev->pid, to_id(file), minor);
     ret = 0;
 error_return:
     return ret;
@@ -163,7 +163,7 @@ static ssize_t fifo_read(struct file *file, char __user *buf, size_t count, loff
         if (i == id)
             continue;
         if (read_pos[minor][i] != write_pos[minor][i])
-            printk(KERN_INFO "FIFO: %p (%d)[%d] rp:%d wp:%d cnt:%lu", file, id, minor, read_pos[minor][i], write_pos[minor][i], count);
+            // printk(KERN_INFO "FIFO: %p (%d)[%d] rp:%d wp:%d cnt:%lu", file, id, minor, read_pos[minor][i], write_pos[minor][i], count);
         while (read_pos[minor][i] != write_pos[minor][i] && bytes_read < count)
         {
             put_user(fifo_buf[minor][i][read_pos[minor][i]], &buf[bytes_read]);
@@ -180,7 +180,7 @@ static ssize_t fifo_read(struct file *file, char __user *buf, size_t count, loff
     if (rpos)
     {
         rdebug_str[rpos] = '\0';
-        printk(KERN_INFO "FIFO: (%d) r[%d]: (%d) %s\n", id, minor, bytes_read, rdebug_str);
+        // printk(KERN_INFO "FIFO: (%d) r[%d]: (%d) %s\n", id, minor, bytes_read, rdebug_str);
     }
 
 error_return:
@@ -215,7 +215,7 @@ static ssize_t fifo_write(struct file *file, const char __user *buf, size_t coun
     if (wpos)
     {
         wdebug_str[wpos] = '\0';
-        printk(KERN_INFO "FIFO: (%d) w[%d]:%s\n", id, minor, wdebug_str);
+        // printk(KERN_INFO "FIFO: (%d) w[%d]:%s\n", id, minor, wdebug_str);
     }
 
 error_return:
