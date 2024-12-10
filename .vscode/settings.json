@@ -2,6 +2,7 @@
     "files.associations": {
         "cdev.h": "c",
         "cstdlib": "c",
-        "kernel.h": "c"
+        "kernel.h": "c",
+        "sysinfo.h": "c"
     }
 }

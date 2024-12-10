@@ -66,18 +66,18 @@ qemu_tty_t qemu_dev[MAX_TTY_NUM];
 
 static struct class *cls;
 static struct cdev cdev;
-static long dev_index = 0;
+static char dev_index[MAX_TTY_NUM] = {0};
 static char rdebug_str[BUF_SIZE];
 static char wdebug_str[BUF_SIZE];
 
-static int device_number(struct inode *inode)
+static int device_number(struct file *file)
 {
     int minor = 0;
-    ERR_RETn(!inode);
-    ERR_RETn(!inode->i_cdev);
+    ERR_RETn(!file);
+    ERR_RETn(!file->f_path.dentry->d_iname);
 
-    //    printk("FIFO dev:%x\n", inode->i_cdev->dev);
-    minor = MINOR(inode->i_cdev->dev) % MAX_CHARACTER_DEVICE;
+    minor = (file->f_path.dentry->d_iname[7] & 0xf) % MAX_CHARACTER_DEVICE;
+    // printk("FIFO dev:%d\n", minor);
 
 error_return:
     return minor;
@@ -87,6 +87,7 @@ static int fifo_open(struct inode *inode, struct file *file)
 {
     struct fifo_dev *fifo_dev;
     int ret;
+
     file->private_data = NULL;
 
     ret = -EINVAL;
@@ -94,7 +95,7 @@ static int fifo_open(struct inode *inode, struct file *file)
     ERR_RETn(!file);
 
     pid_t pid = task_pid_nr(current);
-    int minor = device_number(inode);
+    int minor = device_number(file);
 
     fifo_dev = kmalloc(sizeof(struct fifo_dev), GFP_KERNEL);
 
@@ -102,6 +103,8 @@ static int fifo_open(struct inode *inode, struct file *file)
     ERR_RETn(!fifo_dev);
 
     file->private_data = fifo_dev;
+
+    down_write(&fifo_rwsem);
 
     fifo_dev->pid = 0;
     for (int i = 0; i < MAX_OPEN_PROCESS; i++)
@@ -116,15 +119,16 @@ static int fifo_open(struct inode *inode, struct file *file)
     if (!fifo_dev->pid)
     {
         fifo_dev->pid = pid;
-        fifo_dev->proc_id = dev_index++ % MAX_OPEN_PROCESS;
+        fifo_dev->proc_id = dev_index[minor]++ % MAX_OPEN_PROCESS;
         latest[minor][fifo_dev->proc_id].proc_id = fifo_dev->proc_id;
         latest[minor][fifo_dev->proc_id].pid = fifo_dev->pid;
-        if (dev_index > 100)
-            dev_index = 1;
+        if (dev_index[minor] > 100)
+            dev_index[minor] = 1;
+        // printk(KERN_INFO "FIFO Open: %p pid:%d id:%d d:%d\n", file, fifo_dev->pid, to_id(file), minor);
     }
-    // printk(KERN_INFO "FIFO Open: %p pid:%d id:%d d:%d\n", file, fifo_dev->pid, to_id(file), minor);
     ret = 0;
 error_return:
+    up_write(&fifo_rwsem);
     return ret;
 }
 
@@ -151,19 +155,18 @@ static ssize_t fifo_read(struct file *file, char __user *buf, size_t count, loff
     int id = to_id(file);
 
     ERR_RETn(id < 0);
-    int minor = device_number(file->f_path.dentry->d_inode);
+    int minor = device_number(file);
     int rpos = 0;
 
-    if (!down_read_trylock(&fifo_rwsem))
-    {
-        return 0;
-    }
+    down_read(&fifo_rwsem);
+
     for (int i = 0; i < MAX_OPEN_PROCESS; i++)
     {
         if (i == id)
             continue;
-        if (read_pos[minor][i] != write_pos[minor][i])
-            // printk(KERN_INFO "FIFO: %p (%d)[%d] rp:%d wp:%d cnt:%lu", file, id, minor, read_pos[minor][i], write_pos[minor][i], count);
+//        if (read_pos[minor][i] != write_pos[minor][i])
+//            printk(KERN_INFO "FIFO: %p (%d)[%d] rp:%d wp:%d cnt:%lu", file, id, minor, read_pos[minor][i], write_pos[minor][i], count);
+
         while (read_pos[minor][i] != write_pos[minor][i] && bytes_read < count)
         {
             put_user(fifo_buf[minor][i][read_pos[minor][i]], &buf[bytes_read]);
@@ -198,7 +201,7 @@ static ssize_t fifo_write(struct file *file, const char __user *buf, size_t coun
     ERR_RETn(!file->f_path.dentry);
     ERR_RETn(!file->f_path.dentry->d_inode);
 
-    int minor = device_number(file->f_path.dentry->d_inode);
+    int minor = device_number(file);
 
     down_write(&fifo_rwsem);
 
