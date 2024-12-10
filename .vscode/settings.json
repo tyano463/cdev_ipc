@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "cdev.h": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "kernel.h": "c"
     }
 }
